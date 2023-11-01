@@ -108,9 +108,11 @@ jobs:
       contents: none
     runs-on: ubuntu-latest
     needs: build
-    environment: <ENVIRONMENT-NAME>
+    environment: dev
 
     # TODO: declare environment variables for the dev environment prefix
+    env: 
+      ENVIRONMENT_PREFIX: dev
 
     steps:
 
@@ -118,11 +120,36 @@ jobs:
       - name: download-artifact
         uses: actions/download-artifact@v3
         with:
-          name: <YOUR-ARTIFACT-NAME>
-
+          name: artifacts
+      
       #TODO: Add action to login to Azure (azure/login@v1)
+      - name: azure login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       #TODO: Add action to deploy the Web App Bicep Template (azure/arm-deploy@v1)
+      - name: Deploy ARM Template
+        uses: azure/arm-deploy@v1
+        with:
+          subscriptionId: ${{ secrets.SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ env.ENVIRONMENT_PREFIX }}-${{ needs.build.outputs.RESOURCE_GROUP }}
+          template: 'azuredeploy.bicep'
+          parameters: >
+            envPrefix=${{ env.ENVIRONMENT_PREFIX }}
+            webAppName=${{ needs.build.outputs.AZURE_WEBAPP_NAME }}
+            sku="B1"
+          failOnStdErr: false
+
       #TODO: Add action to deploy the Web App Artifacts (azure/webapps-deploy@v2)
+      - name: Deploy Web App Artifacts
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ needs.build.outputs.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ${{ env.DOTNET_ROOT }}/technight-webapi
+      
+      
       #TODO: Add action to configure the Web App Settings (azure/appservice-settings@v1)
       #TODO: Add action to log out of Azure 
 
